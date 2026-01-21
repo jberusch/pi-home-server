@@ -1,0 +1,20 @@
+[Unit]
+Description=Pi Home Server - SMS Door Opener
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/pi-home-server
+Environment="PATH=/home/pi/pi-home-server/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/pi/pi-home-server/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pi-home-server
+
+[Install]
+WantedBy=multi-user.target
