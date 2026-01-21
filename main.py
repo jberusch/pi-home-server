@@ -2,6 +2,7 @@
 FastAPI server for SMS-controlled door opener.
 Receives Twilio webhooks and triggers door automation.
 """
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Dict
@@ -146,11 +147,8 @@ async def receive_sms(
     # Check rate limit
     if not check_rate_limit(From):
         logger.warning(f"Rate limit exceeded for {From}")
-        message = f"Rate limit exceeded. Max {config.rate_limit_max_requests} requests per hour."
-        return PlainTextResponse(
-            content=create_sms_response(message),
-            media_type="application/xml"
-        )
+        message = "Rate limit exceeded. Try again later."
+        return PlainTextResponse(content=create_sms_response(message), status_code=200, media_type="application/xml")
 
     # Parse command (case-insensitive)
     command = Body.strip().lower()
@@ -159,48 +157,42 @@ async def receive_sms(
     if command == "door":
         logger.info(f"Processing 'door' command from {From}")
 
-        success, result = open_door()
+        success, result = await asyncio.to_thread(open_door)
 
         if success:
             timestamp = datetime.now().strftime("%I:%M%p").lstrip("0")
-            message = f"Door opened at {timestamp}"
-            logger.info(f"Door opened successfully for {From}")
+            logger.info(f"✓ Door opened successfully for {From} at {timestamp}")
+            message = "Opening door"
         elif result == "session_expired":
-            message = "Session expired. Re-authenticate on Pi."
-            logger.error("Session expired")
+            logger.error("✗ Session expired - door NOT opened")
+            message = "Session expired. Please re-authenticate."
         else:
-            message = "Failed to open door. Try again or check session."
-            logger.error(f"Failed to open door: {result}")
+            logger.error(f"✗ Failed to open door: {result}")
+            message = "Failed to open door"
 
-        return PlainTextResponse(
-            content=create_sms_response(message),
-            media_type="application/xml"
-        )
+        return PlainTextResponse(content=create_sms_response(message), status_code=200, media_type="application/xml")
 
     elif command == "status":
         logger.info(f"Processing 'status' command from {From}")
 
-        status = check_status()
+        status = await asyncio.to_thread(check_status)
 
         if status["session_valid"]:
+            logger.info("Status: Server online. Session active.")
             message = "Server online. Session active."
         elif status["cookies_exist"]:
+            logger.info("Status: Server online. Session may be expired.")
             message = "Server online. Session may be expired."
         else:
+            logger.info("Status: Server online. No session found.")
             message = "Server online. No session found."
 
-        return PlainTextResponse(
-            content=create_sms_response(message),
-            media_type="application/xml"
-        )
+        return PlainTextResponse(content=create_sms_response(message), status_code=200, media_type="application/xml")
 
     else:
         logger.info(f"Unknown command from {From}: {command}")
-        message = "Unknown command. Send 'door' to open."
-        return PlainTextResponse(
-            content=create_sms_response(message),
-            media_type="application/xml"
-        )
+        message = "Unknown command. Try: door, status"
+        return PlainTextResponse(content=create_sms_response(message), status_code=200, media_type="application/xml")
 
 
 @app.on_event("startup")

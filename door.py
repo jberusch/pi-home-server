@@ -3,6 +3,7 @@ Door automation using Playwright.
 Handles browser interaction with Avigilon to open doors.
 """
 import logging
+from typing import Optional
 from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page, TimeoutError
 from auth import SessionManager
 from config import config
@@ -17,8 +18,8 @@ class DoorOpener:
 
     def __init__(self):
         self.session_manager = SessionManager()
-        self.browser: Browser | None = None
-        self.context: BrowserContext | None = None
+        self.browser: Optional[Browser] = None
+        self.context: Optional[BrowserContext] = None
 
     def start(self):
         """Initialize browser and load session."""
@@ -62,7 +63,7 @@ class DoorOpener:
         if not self.browser or not self.context:
             return False, "Browser not initialized"
 
-        page: Page | None = None
+        page: Optional[Page] = None
         try:
             # Create new page
             page = self.context.new_page()
@@ -114,7 +115,7 @@ class DoorOpener:
 
 
 # Global door opener instance
-_door_opener: DoorOpener | None = None
+_door_opener: Optional[DoorOpener] = None
 
 
 def get_door_opener() -> DoorOpener:
